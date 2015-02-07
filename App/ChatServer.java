@@ -33,24 +33,3 @@ class ChatServer{
 		}
 	}
 }
-/*class ChatApp{
-	private ChatServer server;
-	static final int serverPort = 6793;
-	UserInterface ui;
-	public ChatApp(UserInterface obj){
-		ui = obj;
-		server = new ChatServer();
-	}
-	public boolean connectToUser(String username, String ipAddress){
-		try{
-			InetAddress ip = InetAddress.getByName(ipAddress);
-			new ChatClient(ip, username);
-		}
-		catch(UnknownHostException e){
-			ui.statusField.setText("Unknown Host.");
-			return false;
-		}
-	}
-
-	
-}*/

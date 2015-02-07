@@ -191,12 +191,13 @@ class UserInterface{
 
 		JPanel chatArea = new JPanel();
 		chatArea.setLayout(new BoxLayout(chatArea, BoxLayout.Y_AXIS));
+		chatArea.setPreferredSize(new Dimension(90, 2000));
 		//chatArea.setEditable(false);
 		//chatArea.setLineWrap(true);
 		//chatArea.setFont(font);
 		JScrollPane chatScroller = new JScrollPane(chatArea);
 		chatScroller.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
-		chatScroller.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+		chatScroller.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
 		ChatClient client = new ChatClient();
 		boolean res = client.connect(ipAddress , chatArea);
@@ -216,13 +217,14 @@ class UserInterface{
 	}
 	public void addTab(String title, Socket socket){
 		JPanel chatArea = new JPanel();
-		chatArea.setLayout(new GridLayout(chatArea, BoxLayout.Y_AXIS));
+		chatArea.setLayout(new BoxLayout(chatArea, BoxLayout.Y_AXIS));
+		chatArea.setPreferredSize(new Dimension(90, 2000));
 		//chatArea.setEditable(false);
 		//chatArea.setLineWrap(true);
 		//chatArea.setFont(font);
 		JScrollPane chatScroller = new JScrollPane(chatArea);
 		chatScroller.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
-		chatScroller.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+		chatScroller.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
 		ChatClient client = new ChatClient();
 		client.setSocket(socket, chatArea);
@@ -320,29 +322,32 @@ class UserInterface{
 				//newTextArea.setMaximumSize(new Dimension(1000, 20));
 				//newTextArea.setFont(new Font("Cambria", Font.PLAIN, 15));
 
-				sendText = "ME: " + sendText;
 
 				int currentIndex = chatTabbedPane.getSelectedIndex();
 				ChatClient currentClient = clientsForTabs.get(currentIndex);
-				currentClient.sendMessage(sendText);
+				currentClient.sendMessage(userName + ": " + sendText);
 
-				if(sendText.length() > 75){
+				sendText = "ME: " + sendText;
+
+				if(sendText.length() > 72){
 					while(sendText.length() > 0){
-						if(sendText.length() > 75){
+						if(sendText.length() > 72){
 							JTextField newTextArea = new JTextField(40);
 							newTextArea.setEditable(false);
-							newTextArea.setMaximumSize(new Dimension(1000, 20));
+							newTextArea.setMaximumSize(new Dimension(1200, 20));
 							newTextArea.setFont(new Font("Cambria", Font.PLAIN, 15));
-							newTextArea.setText(sendText.substring(0, 75));
+							newTextArea.setText(sendText.substring(0, 72));
+							newTextArea.setBorder(BorderFactory.createEmptyBorder());
 							chatArea.add(newTextArea);
 							chatArea.validate();
-							sendText = sendText.substring(75);
+							sendText = sendText.substring(72);
 						}
 						else{
 							JTextField newTextArea = new JTextField(40);
 							newTextArea.setEditable(false);
-							newTextArea.setMaximumSize(new Dimension(1000, 20));
+							newTextArea.setMaximumSize(new Dimension(1200, 20));
 							newTextArea.setFont(new Font("Cambria", Font.PLAIN, 15));
+							newTextArea.setBorder(BorderFactory.createEmptyBorder());
 							newTextArea.setText(sendText);
 							chatArea.add(newTextArea);
 							chatArea.validate();
@@ -353,8 +358,9 @@ class UserInterface{
 				else{
 					JTextField newTextArea = new JTextField(40);
 					newTextArea.setEditable(false);
-					newTextArea.setMaximumSize(new Dimension(1000, 20));
+					newTextArea.setMaximumSize(new Dimension(1200, 20));
 					newTextArea.setFont(new Font("Cambria", Font.PLAIN, 15));
+					newTextArea.setBorder(BorderFactory.createEmptyBorder());
 					newTextArea.setText(sendText);
 					chatArea.add(newTextArea);
 					chatArea.validate();
@@ -464,6 +470,7 @@ class AudioControlUI{
 	ChatClient client;
 
 	boolean jobDone = false;
+	boolean recordComplete = false;
 
 	public AudioControlUI(JFrame parentFrame, JPanel chatArea, ChatClient client, String toUser){
 		this.parentFrame = parentFrame;
@@ -506,10 +513,21 @@ class AudioControlUI{
 				}).start();
 			}
 			else if(button.getText().compareTo("Recording...Click to stop.") == 0){
-				button.setText("Recorded...Click to send.");
 				jack.stopped = true;
+				new Thread(new Runnable(){
+					public void run(){
+						try{
+							Thread.sleep(500);
+						}
+						catch(InterruptedException e){
+							//
+						}
+						button.setText("Recorded...Click to send.");
+						recordComplete = true;
+					}
+				}).start();
 			}
-			else if(button.getText().compareTo("Recorded...Click to send.") == 0){
+			else if(button.getText().compareTo("Recorded...Click to send.") == 0 && recordComplete){
 				frame.setVisible(false);
 				client.sendAudio(recordedBytes);
 				frame.dispose();
@@ -533,6 +551,10 @@ class AudioPlayer implements ActionListener{
 		this.stream = stream;
 	}
 	public void actionPerformed(ActionEvent e){
-		AudioHelper.play(stream);
+		new Thread(new Runnable(){
+			public void run(){
+				AudioHelper.play(stream);
+			}
+		}).start();
 	}
 }

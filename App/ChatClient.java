@@ -73,6 +73,7 @@ class ChatClient{
 		chatArea.add(newTextArea);
 		newTextArea.setMaximumSize(new Dimension(1000, 20));
 		newTextArea.setFont(new Font("Cambria", Font.BOLD, 15));
+		newTextArea.setBorder(BorderFactory.createEmptyBorder());
 		newTextArea.setEditable(false);
 		chatArea.validate();
 	}
@@ -105,10 +106,29 @@ class ChatClient{
 
 				while(true){
 					//updateChatWindow(listenStream.readLine());
-					int len = listenStream.readInt();
-
-					byte[] readData = new byte[len];
-					listenStream.read(readData, 0, len);
+					int len = -1;
+					byte[] readData;
+					try{
+						len = listenStream.readInt();
+						if (len < 0) {
+							continue;
+						}
+						readData = new byte[len];
+						listenStream.readFully(readData, 0, len);
+					}
+					catch(EOFException e){
+						//e.printStackTrace();
+						continue;
+					}
+					catch(SocketException e){
+						//e.printStackTrace();
+						closeConnection();
+						break;
+					}
+					catch(IOException e){
+						//e.printStackTrace();
+						continue;
+					}
 
 					System.out.println("Bytes read: " + len);
 
@@ -135,14 +155,8 @@ class ChatClient{
 					}
 				}
 			}
-			catch(SocketException e){
-				closeConnection();
-			}
-			catch(EOFException e){
-				e.printStackTrace();
-			}
 			catch(IOException e){
-				e.printStackTrace();
+				closeConnection();
 			}
 		}
 	}
