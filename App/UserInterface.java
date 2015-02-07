@@ -4,13 +4,17 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.*;
 import java.net.*;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 class UserInterface{
-	static final String placeholder = "Type in your text here...";
 	String userName;
 	String password;
 	JFrame frame;
 	JTabbedPane chatTabbedPane;
-	JTextArea typeArea;
+	JTextField typeArea;
+	JButton audioButton;
+	JButton videoButton;
+	JPanel inputPanel;
 	JPanel friendsArea;
 	JPanel friendsConnectPanel;
 	JScrollPane friendsConnectScroller;
@@ -21,9 +25,13 @@ class UserInterface{
 	Font font;
 	Font font2;
 
+	AudioControlUI audioUI;
+
 	ChatServer myServer;
 	ArrayList<ChatClient> clientsForTabs = new ArrayList<ChatClient>();
 	ArrayList<Boolean> clientClosedStatus = new ArrayList<Boolean>();
+
+	static final String placeholder = "Type in your text here and press Enter to send.";
 	public UserInterface(String userName, String password){
 		this.userName = userName;
 		this.password = password;
@@ -43,12 +51,32 @@ class UserInterface{
 		//addTab("1");
 		//addTab("2");
 
-		typeArea = new JTextArea(2, 100);
+		typeArea = new JTextField(80);
 		typeArea.setText(placeholder);
 		typeArea.addFocusListener(new TypeAreaListener());
 		typeArea.addKeyListener(new TypeAreaListener2());
-		typeArea.setLineWrap(true);
+		//typeArea.setLineWrap(true);
 		typeArea.setFont(font2);
+		typeArea.setBorder(BorderFactory.createEmptyBorder());
+
+		audioButton = new JButton("", new ImageIcon("audio.png"));
+		audioButton.setFocusPainted(false);
+		audioButton.addActionListener(new AudioButtonListener());
+		videoButton = new JButton("", new ImageIcon("video.png"));
+		videoButton.setFocusPainted(false);
+		JPanel buttonPanel = new JPanel();
+		buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
+		buttonPanel.setBackground(Color.WHITE);
+		buttonPanel.setBorder(BorderFactory.createLineBorder(new Color(109, 132, 180), 2));
+		buttonPanel.add(audioButton);
+		buttonPanel.add(videoButton);
+
+		inputPanel = new JPanel();
+		inputPanel.setLayout(new BoxLayout(inputPanel, BoxLayout.X_AXIS));
+		inputPanel.setBorder(BorderFactory.createLineBorder(new Color(109, 132, 180)));
+
+		inputPanel.add(typeArea);
+		inputPanel.add(buttonPanel);
 
 		JTextField friendsTitle = new JTextField(15);
 		friendsTitle.setMaximumSize(new Dimension(250,20));
@@ -70,15 +98,16 @@ class UserInterface{
 		searchPanel = new JPanel();
 		searchPanel.setMaximumSize(new Dimension(350, 40));
 		searchPanel.setBackground(Color.WHITE);
-		//searchPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+		searchPanel.setBorder(BorderFactory.createEmptyBorder());
 		searchPanel.add(searchField);
 		searchPanel.add(searchButton);
 
 		friendsConnectPanel = new JPanel();
 		friendsConnectPanel.setLayout(new BoxLayout(friendsConnectPanel, BoxLayout.Y_AXIS));
 		friendsConnectPanel.setBackground(Color.WHITE);
-		//friendsConnectPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+		friendsConnectPanel.setBorder(BorderFactory.createEmptyBorder());
 		friendsConnectScroller = new JScrollPane(friendsConnectPanel);
+		friendsConnectScroller.setBorder(BorderFactory.createEmptyBorder());
 		showFriendList();
 
 		statusField = new JTextField(15);
@@ -88,6 +117,7 @@ class UserInterface{
 		statusField.setForeground(new Color(109, 132, 180));
 		statusField.setHorizontalAlignment(JTextField.CENTER);
 		statusField.setFont(new Font("Cambria", Font.BOLD, 10));
+		statusField.setBorder(BorderFactory.createEmptyBorder());
 
 		final JTextField copyStatusField = statusField;
 		new Thread(new Runnable(){
@@ -108,6 +138,7 @@ class UserInterface{
 		friendsArea = new JPanel();
 		friendsArea.setLayout(new BoxLayout(friendsArea, BoxLayout.Y_AXIS));
 		friendsArea.setBackground(Color.WHITE);
+		friendsArea.setBorder(BorderFactory.createLineBorder(new Color(109, 132, 180)));
 		friendsArea.add(friendsTitle);
 		friendsArea.add(searchPanel);
 		friendsArea.add(friendsConnectScroller);
@@ -116,7 +147,7 @@ class UserInterface{
 
 		frame.getContentPane().add(BorderLayout.WEST, friendsArea);
 		frame.getContentPane().add(BorderLayout.CENTER, chatTabbedPane);
-		frame.getContentPane().add(BorderLayout.SOUTH, typeArea);
+		frame.getContentPane().add(BorderLayout.SOUTH, inputPanel);
 		Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
 		frame.setLocation(dim.width/2-frame.getSize().width/2, dim.height/2-frame.getSize().height/2);
 
@@ -158,13 +189,14 @@ class UserInterface{
 			}
 		}
 
-		JTextArea chatArea = new JTextArea(250, 25);
-		chatArea.setEditable(false);
-		chatArea.setLineWrap(true);
-		chatArea.setFont(font);
+		JPanel chatArea = new JPanel();
+		chatArea.setLayout(new BoxLayout(chatArea, BoxLayout.Y_AXIS));
+		//chatArea.setEditable(false);
+		//chatArea.setLineWrap(true);
+		//chatArea.setFont(font);
 		JScrollPane chatScroller = new JScrollPane(chatArea);
-		chatScroller.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
-		chatScroller.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+		chatScroller.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+		chatScroller.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
 		ChatClient client = new ChatClient();
 		boolean res = client.connect(ipAddress , chatArea);
@@ -178,17 +210,19 @@ class UserInterface{
 		clientClosedStatus.add(false);
 
 		chatTabbedPane.addTab(title, chatScroller);
+		chatTabbedPane.setBackgroundAt(clientsForTabs.size()-1, new Color(109, 132, 180));
 		chatTabbedPane.setSelectedComponent(chatScroller);
 
 	}
 	public void addTab(String title, Socket socket){
-		JTextArea chatArea = new JTextArea(250, 25);
-		chatArea.setEditable(false);
-		chatArea.setLineWrap(true);
-		chatArea.setFont(font);
+		JPanel chatArea = new JPanel();
+		chatArea.setLayout(new GridLayout(chatArea, BoxLayout.Y_AXIS));
+		//chatArea.setEditable(false);
+		//chatArea.setLineWrap(true);
+		//chatArea.setFont(font);
 		JScrollPane chatScroller = new JScrollPane(chatArea);
-		chatScroller.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
-		chatScroller.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+		chatScroller.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+		chatScroller.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
 		ChatClient client = new ChatClient();
 		client.setSocket(socket, chatArea);
@@ -197,6 +231,7 @@ class UserInterface{
 		clientClosedStatus.add(false);
 
 		chatTabbedPane.addTab(title, chatScroller);
+		chatTabbedPane.setBackgroundAt(clientsForTabs.size()-1, new Color(109, 132, 180));
 		chatTabbedPane.setSelectedComponent(chatScroller);
 	}
 	private void showFriendList(){
@@ -209,6 +244,8 @@ class UserInterface{
 					MyButton button = new MyButton(x);
 					friendsConnectPanel.add(button);
 					button.addActionListener(new StartChatListener(x));
+					button.setBorder(BorderFactory.createEmptyBorder(5,10,5,10));
+					button.setFocusPainted(false);
 				}
 			}
 		}
@@ -264,8 +301,7 @@ class UserInterface{
 				String sendText = typeArea.getText();
 				JScrollPane currScroller = (JScrollPane) chatTabbedPane.getSelectedComponent();
 				JViewport viewport = currScroller.getViewport();
-				JTextArea chatArea = (JTextArea) viewport.getView();
-				//chatArea.setText(chatArea.getText() + "\nME: " + sendText);
+				/*JTextArea chatArea = (JTextArea) viewport.getView();
 				String current = chatArea.getText();
 				if(current.equals(""))
 					chatArea.setText("ME: " + sendText);
@@ -274,18 +310,69 @@ class UserInterface{
 						chatArea.setText(current + "ME: " + sendText);
 					else
 						chatArea.setText(current + "\nME: " + sendText);
-				}
-				typeArea.setText("");
+				}*/
+				JPanel chatArea = (JPanel) viewport.getView();
+				//JTextField newTextArea = new JTextField(40);
+				//int pixels = newTextArea.getFontMetrics(new Font("Cambria", Font.PLAIN, 15)).stringWidth("ME: " + sendText + "    ");
+				//int cols = (int)(pixels / (newTextArea.getPreferredSize().getWidth() / 40)) + 5;
+				//newTextArea.setColumns(cols);
+				//newTextArea.setEditable(false);
+				//newTextArea.setMaximumSize(new Dimension(1000, 20));
+				//newTextArea.setFont(new Font("Cambria", Font.PLAIN, 15));
+
+				sendText = "ME: " + sendText;
 
 				int currentIndex = chatTabbedPane.getSelectedIndex();
 				ChatClient currentClient = clientsForTabs.get(currentIndex);
 				currentClient.sendMessage(sendText);
 
+				if(sendText.length() > 75){
+					while(sendText.length() > 0){
+						if(sendText.length() > 75){
+							JTextField newTextArea = new JTextField(40);
+							newTextArea.setEditable(false);
+							newTextArea.setMaximumSize(new Dimension(1000, 20));
+							newTextArea.setFont(new Font("Cambria", Font.PLAIN, 15));
+							newTextArea.setText(sendText.substring(0, 75));
+							chatArea.add(newTextArea);
+							chatArea.validate();
+							sendText = sendText.substring(75);
+						}
+						else{
+							JTextField newTextArea = new JTextField(40);
+							newTextArea.setEditable(false);
+							newTextArea.setMaximumSize(new Dimension(1000, 20));
+							newTextArea.setFont(new Font("Cambria", Font.PLAIN, 15));
+							newTextArea.setText(sendText);
+							chatArea.add(newTextArea);
+							chatArea.validate();
+							sendText = "";
+						}
+					}
+				}
+				else{
+					JTextField newTextArea = new JTextField(40);
+					newTextArea.setEditable(false);
+					newTextArea.setMaximumSize(new Dimension(1000, 20));
+					newTextArea.setFont(new Font("Cambria", Font.PLAIN, 15));
+					newTextArea.setText(sendText);
+					chatArea.add(newTextArea);
+					chatArea.validate();
+				}
+
+				//newTextArea.setText("ME: " + sendText);
+				
+
+				typeArea.setText("");
+
 				pressed = false;
 			}
 		}
 		public void keyTyped(KeyEvent e){
-			//
+			JTextField field = (JTextField) e.getSource();
+			if(field.getText().length() > 100){
+				field.setText(field.getText().substring(0, 100));
+			}
 		}
 	}
 	class AddFriendListener implements ActionListener{
@@ -338,6 +425,22 @@ class UserInterface{
 			statusField.setText("Unknown Host.");
 		}
 	}
+	class AudioButtonListener implements ActionListener{
+		public void actionPerformed(ActionEvent e){
+			int currentIndex = chatTabbedPane.getSelectedIndex();
+			ChatClient currentClient = clientsForTabs.get(currentIndex);
+			String toUser = chatTabbedPane.getTitleAt(currentIndex);
+
+			JScrollPane currScroller = (JScrollPane) chatTabbedPane.getComponentAt(currentIndex);
+			JViewport viewport = currScroller.getViewport();
+			JPanel chatArea = (JPanel) viewport.getView();
+
+			if(audioUI == null || audioUI.jobDone){
+				audioUI = new AudioControlUI(frame, chatArea, currentClient, toUser);
+				audioUI.show();
+			}
+		}
+	}
 }
 class MyButton extends JButton{
 	public MyButton(String title){
@@ -345,5 +448,91 @@ class MyButton extends JButton{
 		setBackground(Color.WHITE);
 		setForeground(Color.BLACK);
 		setBorder(BorderFactory.createLineBorder(Color.WHITE, 5));
+	}
+}
+class AudioControlUI{
+	JFrame frame;
+	JButton button;
+	JTextField statusField;
+
+	byte[] recordedBytes;
+	AudioHelper jack;
+
+	String toUser;
+	JFrame parentFrame;
+	JPanel chatArea;
+	ChatClient client;
+
+	boolean jobDone = false;
+
+	public AudioControlUI(JFrame parentFrame, JPanel chatArea, ChatClient client, String toUser){
+		this.parentFrame = parentFrame;
+		this.chatArea = chatArea;
+		this.client = client;
+		this.toUser = toUser;
+		jack = new AudioHelper();
+	}
+	public void show(){
+		frame = new JFrame("Send Audio to " + toUser);
+		frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		frame.setSize(350, 80);
+
+		button = new JButton("Start");
+		button.addActionListener(new AudioRecorder());
+		statusField = new JTextField();
+		statusField.setText("Click to start. Maximum allowed size: 5MB.");
+		statusField.setHorizontalAlignment(JTextField.CENTER);
+		statusField.setEditable(false);
+		frame.getContentPane().add(BorderLayout.CENTER, button);
+		frame.getContentPane().add(BorderLayout.SOUTH, statusField);
+		frame.setResizable(false);
+
+
+
+		Point parentLoc = parentFrame.getLocation();
+		int xloc = (int) (parentLoc.getX() + parentFrame.getSize().width/2 - frame.getSize().width/2);
+		int yloc = (int) (parentLoc.getY() + parentFrame.getSize().height/2 - frame.getSize().height/2);
+		frame.setLocation(xloc, yloc);
+		frame.setVisible(true);
+	}
+	class AudioRecorder implements ActionListener{
+		public void actionPerformed(ActionEvent e){
+			if(button.getText().compareTo("Start") == 0){
+				button.setText("Recording...Click to stop.");
+				new Thread(new Runnable(){
+					public void run(){
+						recordedBytes = jack.record();
+					}
+				}).start();
+			}
+			else if(button.getText().compareTo("Recording...Click to stop.") == 0){
+				button.setText("Recorded...Click to send.");
+				jack.stopped = true;
+			}
+			else if(button.getText().compareTo("Recorded...Click to send.") == 0){
+				frame.setVisible(false);
+				client.sendAudio(recordedBytes);
+				frame.dispose();
+				addAudioButton(chatArea, recordedBytes, "Audio File Sent");
+				jobDone = true;
+			}
+		}
+	}
+	public static void addAudioButton(JPanel panel, byte[] recordedBytes, String text){
+		JButton playButton = new JButton(text, new ImageIcon("speakers.png"));
+		playButton.setBackground(Color.WHITE);
+		playButton.setFocusPainted(false);
+		playButton.addActionListener(new AudioPlayer(recordedBytes));
+		panel.add(playButton);
+		panel.validate();
+	}
+}
+class AudioPlayer implements ActionListener{
+	byte[] stream;
+	public AudioPlayer(byte[] stream){
+		this.stream = stream;
+	}
+	public void actionPerformed(ActionEvent e){
+		AudioHelper.play(stream);
 	}
 }
