@@ -1,7 +1,7 @@
 import java.io.*;
 import java.net.*;
 class Connection{
-	static final String serverIP = "172.16.6.88";
+	static final String serverIP = "172.16.11.47";
 	static final int serverPort = 6789;
 	static String error = "";
 	static String response = "";

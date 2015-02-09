@@ -191,7 +191,7 @@ class UserInterface{
 
 		JPanel chatArea = new JPanel();
 		chatArea.setLayout(new BoxLayout(chatArea, BoxLayout.Y_AXIS));
-		chatArea.setPreferredSize(new Dimension(90, 2000));
+		chatArea.setPreferredSize(new Dimension(90, 10000));
 		//chatArea.setEditable(false);
 		//chatArea.setLineWrap(true);
 		//chatArea.setFont(font);
@@ -218,7 +218,7 @@ class UserInterface{
 	public void addTab(String title, Socket socket){
 		JPanel chatArea = new JPanel();
 		chatArea.setLayout(new BoxLayout(chatArea, BoxLayout.Y_AXIS));
-		chatArea.setPreferredSize(new Dimension(90, 2000));
+		chatArea.setPreferredSize(new Dimension(90, 10000));
 		//chatArea.setEditable(false);
 		//chatArea.setLineWrap(true);
 		//chatArea.setFont(font);

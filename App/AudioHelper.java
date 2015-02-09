@@ -13,7 +13,7 @@ import javax.sound.sampled.TargetDataLine;
 
 public class AudioHelper {
 
-	static final float sampleRate = 8000.0f;
+	static final float sampleRate = 80000.0f;
 	static final int sampleSizeInBits = 16;
 	static final int channels = 1;
 	static final boolean signed = true;

@@ -5,6 +5,7 @@ import java.net.*;
 class ChatClient{
 	Thread listeningThread;
 	private Socket mSocket;
+	private Socket mediaSocket;
 	private JPanel chatArea;
 	static final int serverPort = 6792;
 	public ChatClient(){
@@ -34,6 +35,7 @@ class ChatClient{
 			DataOutputStream outputStream = new DataOutputStream(mSocket.getOutputStream());
 			byte[] textBytes = text.getBytes();
 			System.out.println("Bytes sent: " + textBytes.length);
+			outputStream.writeInt(1);
 			outputStream.writeInt(textBytes.length);
 			outputStream.write(textBytes, 0, textBytes.length);
 		}
@@ -49,6 +51,7 @@ class ChatClient{
 		try{
 			DataOutputStream outputStream = new DataOutputStream(mSocket.getOutputStream());
 			System.out.println("Bytes sent: " + audioBytes.length);
+			outputStream.writeInt(2);
 			outputStream.writeInt(audioBytes.length);
 			outputStream.write(audioBytes, 0, audioBytes.length);
 		}
@@ -107,14 +110,40 @@ class ChatClient{
 				while(true){
 					//updateChatWindow(listenStream.readLine());
 					int len = -1;
+					int type = -1;
 					byte[] readData;
 					try{
+						type = listenStream.readInt();
+
 						len = listenStream.readInt();
 						if (len < 0) {
 							continue;
 						}
+
 						readData = new byte[len];
 						listenStream.readFully(readData, 0, len);
+
+						if(type == 1){
+							String str = new String(readData);
+							if(str.length() > 70){
+								while(str.length() > 0){
+									if(str.length() > 70){
+										updateChatWindow(str.substring(0, 70));
+										str = str.substring(70);
+									}
+									else{
+										updateChatWindow(str);
+										str = "";
+									}
+								}
+							}
+							else{
+								updateChatWindow(str);
+							}
+						}
+						else if(type == 2){
+							updateChatWindow(readData);
+						}
 					}
 					catch(EOFException e){
 						//e.printStackTrace();
@@ -129,30 +158,7 @@ class ChatClient{
 						//e.printStackTrace();
 						continue;
 					}
-
-					System.out.println("Bytes read: " + len);
-
-					if(len >= 1024){
-						updateChatWindow(readData);
-					}
-					else{
-						String str = new String(readData);
-						if(str.length() > 70){
-							while(str.length() > 0){
-								if(str.length() > 70){
-									updateChatWindow(str.substring(0, 70));
-									str = str.substring(70);
-								}
-								else{
-									updateChatWindow(str);
-									str = "";
-								}
-							}
-						}
-						else{
-							updateChatWindow(str);
-						}
-					}
+					
 				}
 			}
 			catch(IOException e){
