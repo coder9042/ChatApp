@@ -15,20 +15,33 @@ class UserInterface{
 	JButton audioButton;
 	JButton videoButton;
 	JPanel inputPanel;
+
 	JPanel friendsArea;
 	JPanel friendsConnectPanel;
 	JScrollPane friendsConnectScroller;
 	JTextField searchField;
 	JButton searchButton;
 	JPanel searchPanel;
+
+	JPanel groupArea;
+	JPanel groupConnectPanel;
+	JScrollPane groupConnectScroller;
+	JTextField groupAddField;
+	JButton groupAddButton;
+	JPanel groupSearchPanel;
+
 	JTextField statusField;
 	Font font;
 	Font font2;
 
+	ArrayList<String> friendList;
+	ArrayList<Group> groupList;
+
 	AudioControlUI audioUI;
 
 	ChatServer myServer;
-	ArrayList<ChatClient> clientsForTabs = new ArrayList<ChatClient>();
+	GroupChatServer myGroupServer;
+	ArrayList<Client> clientsForTabs = new ArrayList<Client>();
 	ArrayList<Boolean> clientClosedStatus = new ArrayList<Boolean>();
 
 	static final String placeholder = "Type in your text here and press Enter to send.";
@@ -36,6 +49,7 @@ class UserInterface{
 		this.userName = userName;
 		this.password = password;
 		myServer = new ChatServer(this);
+		myGroupServer = new GroupChatServer(this);
 	}
 	public void show() {
 		frame = new JFrame("CHAT APP -- " + userName);
@@ -88,6 +102,7 @@ class UserInterface{
 		friendsTitle.setBorder(BorderFactory.createEmptyBorder());
 		friendsTitle.setFont(font);
 
+
 		searchField = new JTextField(10);
 		searchField.setFont(font2);
 		searchButton = new JButton("Add");
@@ -110,6 +125,39 @@ class UserInterface{
 		friendsConnectScroller.setBorder(BorderFactory.createEmptyBorder());
 		showFriendList();
 
+		JTextField groupsTitle = new JTextField(15);
+		groupsTitle.setMaximumSize(new Dimension(250,20));
+		groupsTitle.setText("MY GROUPS");
+		groupsTitle.setEditable(false);
+		groupsTitle.setBackground(Color.WHITE);
+		groupsTitle.setForeground(new Color(109, 132, 180));
+		groupsTitle.setHorizontalAlignment(JTextField.CENTER);
+		groupsTitle.setBorder(BorderFactory.createEmptyBorder());
+		groupsTitle.setFont(font);
+
+		groupAddField = new JTextField(10);
+		groupAddField.setFont(font2);
+		groupAddButton = new JButton("Create");
+		groupAddButton.setFocusPainted(false);
+		groupAddButton.setBackground(new Color(109, 132, 180));
+		groupAddButton.setForeground(Color.WHITE);
+		groupAddButton.addActionListener(new CreateGroupListener());
+		groupSearchPanel = new JPanel();
+		groupSearchPanel.setMaximumSize(new Dimension(350, 40));
+		groupSearchPanel.setBackground(Color.WHITE);
+		groupSearchPanel.setBorder(BorderFactory.createEmptyBorder());
+		groupSearchPanel.add(groupAddField);
+		groupSearchPanel.add(groupAddButton);
+
+		groupConnectPanel = new JPanel();
+		groupConnectPanel.setLayout(new BoxLayout(groupConnectPanel, BoxLayout.Y_AXIS));
+		groupConnectPanel.setBackground(Color.WHITE);
+		groupConnectPanel.setBorder(BorderFactory.createEmptyBorder());
+		groupConnectScroller = new JScrollPane(groupConnectPanel);
+		groupConnectScroller.setBorder(BorderFactory.createEmptyBorder());
+		showGroupList();
+
+
 		statusField = new JTextField(15);
 		statusField.setMaximumSize(new Dimension(250,20));
 		statusField.setEditable(false);
@@ -117,7 +165,8 @@ class UserInterface{
 		statusField.setForeground(new Color(109, 132, 180));
 		statusField.setHorizontalAlignment(JTextField.CENTER);
 		statusField.setFont(new Font("Cambria", Font.BOLD, 10));
-		statusField.setBorder(BorderFactory.createEmptyBorder());
+		statusField.setBorder(BorderFactory.createLineBorder(new Color(109, 132, 180)));
+		statusField.setText("Welcome!");
 
 		final JTextField copyStatusField = statusField;
 		new Thread(new Runnable(){
@@ -126,6 +175,7 @@ class UserInterface{
 					try{
 						Thread.sleep(5000);
 						checkSocketStatus();
+						//refreshFriendList();
 						copyStatusField.setText("");
 					}
 					catch(Exception e){
@@ -142,10 +192,26 @@ class UserInterface{
 		friendsArea.add(friendsTitle);
 		friendsArea.add(searchPanel);
 		friendsArea.add(friendsConnectScroller);
-		friendsArea.add(statusField);
+
+		groupArea = new JPanel();
+		groupArea.setLayout(new BoxLayout(groupArea, BoxLayout.Y_AXIS));
+		groupArea.setBackground(Color.WHITE);
+		groupArea.setBorder(BorderFactory.createLineBorder(new Color(109, 132, 180)));
+		groupArea.add(groupsTitle);
+		groupArea.add(groupSearchPanel);
+		groupArea.add(groupConnectScroller);
+
+		JPanel leftPanel = new JPanel();
+		leftPanel.setLayout(new BoxLayout(leftPanel, BoxLayout.Y_AXIS));
+		leftPanel.setBackground(Color.WHITE);
+		leftPanel.setBorder(BorderFactory.createLineBorder(new Color(109, 132, 180)));
+		leftPanel.add(friendsArea);
+		leftPanel.add(groupArea);
+		leftPanel.add(statusField);
+		//friendsArea.add(statusField);
 
 
-		frame.getContentPane().add(BorderLayout.WEST, friendsArea);
+		frame.getContentPane().add(BorderLayout.WEST, leftPanel);
 		frame.getContentPane().add(BorderLayout.CENTER, chatTabbedPane);
 		frame.getContentPane().add(BorderLayout.SOUTH, inputPanel);
 		Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
@@ -157,7 +223,7 @@ class UserInterface{
 		            "Are you sure to logout and exit?", "Exit CHAT APP?", 
 		            JOptionPane.YES_NO_OPTION,
 		            JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION){
-		        	for(ChatClient c: clientsForTabs){
+		        	for(Client c: clientsForTabs){
 		        		c.closeConnection();
 		        	}
 		        	boolean done = Connection.logout(userName);
@@ -236,13 +302,58 @@ class UserInterface{
 		chatTabbedPane.setBackgroundAt(clientsForTabs.size()-1, new Color(109, 132, 180));
 		chatTabbedPane.setSelectedComponent(chatScroller);
 	}
+	public void addGroupTab(String groupName, Socket socket, ArrayList<InetAddress> ipAddresses){
+		System.out.println("group: " + groupName);
+		boolean flag = false;
+		int index = -1;
+		int num_tabs = chatTabbedPane.getTabCount();
+		for(int i=0;i<num_tabs;i++){
+			String t = chatTabbedPane.getTitleAt(i);
+			System.out.println("t: " + t);
+			if(t.compareTo(groupName) == 0){
+				chatTabbedPane.setSelectedComponent(chatTabbedPane.getComponentAt(i));
+				index = i;
+				flag = true;
+			}
+		}
+
+		JPanel chatArea = new JPanel();
+
+		if(flag == false){
+			chatArea.setLayout(new BoxLayout(chatArea, BoxLayout.Y_AXIS));
+			chatArea.setPreferredSize(new Dimension(90, 10000));
+			//chatArea.setEditable(false);
+			//chatArea.setLineWrap(true);
+			//chatArea.setFont(font);
+			JScrollPane chatScroller = new JScrollPane(chatArea);
+			chatScroller.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+			chatScroller.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+			
+
+			GroupChatClient client = new GroupChatClient(groupName);
+			client.setSocket(socket, chatArea, ipAddresses);
+
+			clientsForTabs.add(client);
+			clientClosedStatus.add(false);
+
+			chatTabbedPane.addTab(groupName, chatScroller);
+			chatTabbedPane.setBackgroundAt(clientsForTabs.size()-1, new Color(109, 132, 180));
+			chatTabbedPane.setSelectedComponent(chatScroller);
+		}
+		else{
+			GroupChatClient client = (GroupChatClient) clientsForTabs.get(index);
+			client.setSocket(socket, chatArea, ipAddresses);
+		}
+	}
 	private void showFriendList(){
+		friendList = new ArrayList<String>();
 		boolean val = Connection.getFriendList(userName);
 		if(val){
 			String response = Connection.response;
 			if(response != null && response.compareTo("null") != 0){
 				String ar[] = response.split(",");
 				for(String x: ar){
+					friendList.add(x);
 					MyButton button = new MyButton(x);
 					friendsConnectPanel.add(button);
 					button.addActionListener(new StartChatListener(x));
@@ -260,9 +371,37 @@ class UserInterface{
 		showFriendList();
 		friendsConnectPanel.validate();
 	}
+	private void showGroupList(){
+		boolean val = Connection.getGroupList(userName);
+		groupList = new ArrayList<Group>();
+		if(val){
+			String response = Connection.response;
+			if(response != null && response.compareTo("null") != 0){
+				String ar[] = response.split(",");
+				int index = -1;
+				for(String x: ar){
+					groupList.add(new Group(x));
+					index++;
+					MyButton button = new MyButton(x);
+					groupConnectPanel.add(button);
+					button.addActionListener(new GroupButtonListener(x, index));
+					button.setBorder(BorderFactory.createEmptyBorder(5,10,5,10));
+					button.setFocusPainted(false);
+				}
+			}
+		}
+		else{
+			statusField.setText(Connection.error);
+		}
+	}
+	private void refreshGroupList(){
+		groupConnectPanel.removeAll();
+		showGroupList();
+		groupConnectPanel.validate();
+	}
 	private void checkSocketStatus(){
 		for(int i=0; i<clientsForTabs.size();i++){
-			ChatClient c = clientsForTabs.get(i);
+			ChatClient c = (ChatClient) clientsForTabs.get(i);
 			if(!clientClosedStatus.get(i) && c.isClosed()){
 				clientClosedStatus.set(i, true);
 				if (JOptionPane.showConfirmDialog(frame, 
@@ -324,7 +463,7 @@ class UserInterface{
 
 
 				int currentIndex = chatTabbedPane.getSelectedIndex();
-				ChatClient currentClient = clientsForTabs.get(currentIndex);
+				Client currentClient = clientsForTabs.get(currentIndex);
 				currentClient.sendMessage(userName + ": " + sendText);
 
 				sendText = "ME: " + sendText;
@@ -399,6 +538,38 @@ class UserInterface{
 			}
 		}
 	}
+	class CreateGroupListener implements ActionListener{
+		public void actionPerformed(ActionEvent e){
+			String name = groupAddField.getText();
+			if(name == null || name.equals("")){
+				statusField.setText("Please specify a group name.");
+				return;
+			}
+			groupAddField.setText("");
+			boolean val = Connection.addGroup(userName, name);
+			if(val){
+				statusField.setText(Connection.response);
+				refreshGroupList();
+			}
+			else{
+				statusField.setText(Connection.error);
+			}
+		}
+	}
+	class GroupButtonListener implements ActionListener{
+		int index;
+		String name;
+		public GroupButtonListener(String name, int index){
+			this.index = index;
+			this.name = name;
+		}
+		public void actionPerformed(ActionEvent e){
+			Group group = groupList.get(index);
+			group.populate(false);
+			GroupManagerUI groupUI = new GroupManagerUI(userName, frame, group, friendList, chatTabbedPane, statusField, clientsForTabs, clientClosedStatus);
+			groupUI.show();
+		}
+	}
 	class StartChatListener implements ActionListener{
 		String name;
 		public StartChatListener(String name){
@@ -434,7 +605,7 @@ class UserInterface{
 	class AudioButtonListener implements ActionListener{
 		public void actionPerformed(ActionEvent e){
 			int currentIndex = chatTabbedPane.getSelectedIndex();
-			ChatClient currentClient = clientsForTabs.get(currentIndex);
+			Client currentClient = clientsForTabs.get(currentIndex);
 			String toUser = chatTabbedPane.getTitleAt(currentIndex);
 
 			JScrollPane currScroller = (JScrollPane) chatTabbedPane.getComponentAt(currentIndex);
@@ -467,12 +638,12 @@ class AudioControlUI{
 	String toUser;
 	JFrame parentFrame;
 	JPanel chatArea;
-	ChatClient client;
+	Client client;
 
 	boolean jobDone = false;
 	boolean recordComplete = false;
 
-	public AudioControlUI(JFrame parentFrame, JPanel chatArea, ChatClient client, String toUser){
+	public AudioControlUI(JFrame parentFrame, JPanel chatArea, Client client, String toUser){
 		this.parentFrame = parentFrame;
 		this.chatArea = chatArea;
 		this.client = client;
@@ -556,5 +727,271 @@ class AudioPlayer implements ActionListener{
 				AudioHelper.play(stream);
 			}
 		}).start();
+	}
+}
+class Group{
+	private String groupName;
+	private ArrayList<String> members = new ArrayList<String>();
+	private ArrayList<ChatClient> clients = new ArrayList<>();
+	public Group(String groupName){
+		this.groupName = groupName;
+	}
+	public String getName(){
+		return groupName;
+	}
+	public void addMember(String name){
+		members.add(name);
+	}
+	public String getMember(int index){
+		return members.get(index);
+	}
+	public ArrayList<String> getMembers(){
+		return members;
+	}
+	public void populate(boolean force){
+		if(members.size() == 0 || force){
+			members = new ArrayList<String>();
+			boolean val = Connection.getGroupMembers(groupName);
+			if(val){
+				String mem[] = (Connection.response).split(",");
+				for(String x: mem)
+					members.add(x);
+			}
+		}
+	}
+}
+class GroupManagerUI{
+	String userName;
+	Group group;
+	ArrayList<String> friendList;
+
+	JFrame parentFrame;
+	JFrame frame;
+
+	JTabbedPane parentTabbedPane;
+	ArrayList<Client> clientsForTabs;
+	ArrayList<Boolean> clientClosedStatus;
+
+	JTextField statusField;
+
+	JPanel mainPanel;
+	JPanel leftPanel;
+	JTextArea currentMembers;
+	JPanel rightPanel;
+	JPanel innerPanel;
+	JScrollPane rightScroller;
+	JButton addMember;
+
+	JButton startButton;
+
+	ArrayList<String> checkBoxSelection = new ArrayList<String>();
+
+	public GroupManagerUI(String userName, JFrame parentFrame, Group group, ArrayList<String> friendList, JTabbedPane parentTabbedPane, JTextField statusField, ArrayList<Client> clientsForTabs, ArrayList<Boolean> clientClosedStatus){
+		this.userName = userName;
+		this.parentFrame = parentFrame;
+		this.parentTabbedPane = parentTabbedPane;
+		this.group = group;
+		this.clientsForTabs = clientsForTabs;
+		this.clientClosedStatus = clientClosedStatus;
+		this.statusField = statusField;
+		this.friendList = new ArrayList<String>();
+		for(String x: friendList){
+			this.friendList.add(x);
+		}
+	}
+	private void showGroupMembers(){
+		String members = "";
+		for(String x: group.getMembers())
+			members += x + "\n";
+		currentMembers.setText(members);
+	}
+	private void updateFriendList(){
+		for(String x: group.getMembers()){
+			friendList.remove(x);
+		}
+	}
+	public void setFriendList(){
+		innerPanel.removeAll();
+		System.out.println("removed");
+		for(String x : friendList){
+			System.out.println(x);
+			JCheckBox chk = new JCheckBox(x);
+			chk.addItemListener(new CheckboxItemListener());
+			innerPanel.add(chk);
+		}
+		innerPanel.validate();
+		innerPanel.repaint();
+		System.out.println("validated");
+	}
+	public void show(){
+		frame = new JFrame("CHAT APP -- " + group.getName());
+		frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		frame.setSize(500, 300);
+		frame.setResizable(false);
+
+		leftPanel = new JPanel();
+		leftPanel.setLayout(new BoxLayout(leftPanel, BoxLayout.Y_AXIS));
+		leftPanel.setBackground(Color.WHITE);
+
+		currentMembers = new JTextArea();
+		showGroupMembers();
+		currentMembers.setEditable(false);
+		JScrollPane scroller = new JScrollPane(currentMembers);
+		scroller.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+
+		JTextField leftLabel = new JTextField("Current Members");
+		leftLabel.setMaximumSize(new Dimension(250,200));
+		leftLabel.setEditable(false);
+		leftLabel.setBackground(Color.WHITE);
+		leftLabel.setForeground(new Color(109, 132, 180));
+		leftLabel.setHorizontalAlignment(JTextField.CENTER);
+		leftLabel.setBorder(BorderFactory.createEmptyBorder());
+		leftLabel.setFont(new Font("Cambria", Font.BOLD, 14));
+
+		leftPanel.add(leftLabel);
+		leftPanel.add(scroller);
+
+
+		rightPanel = new JPanel();
+		rightPanel.setLayout(new BoxLayout(rightPanel, BoxLayout.Y_AXIS));
+		rightPanel.setBackground(Color.WHITE);
+
+		JTextField rightLabel = new JTextField("Add Members");
+		rightLabel.setMaximumSize(new Dimension(250,200));
+		rightLabel.setEditable(false);
+		rightLabel.setBackground(Color.WHITE);
+		rightLabel.setForeground(new Color(109, 132, 180));
+		rightLabel.setHorizontalAlignment(JTextField.CENTER);
+		rightLabel.setBorder(BorderFactory.createEmptyBorder());
+		rightLabel.setFont(new Font("Cambria", Font.BOLD, 14));
+
+		rightPanel.add(rightLabel);
+
+		innerPanel= new JPanel();
+		innerPanel.setBackground(Color.WHITE);
+		innerPanel.setLayout(new BoxLayout(innerPanel, BoxLayout.Y_AXIS));
+		rightScroller = new JScrollPane(innerPanel);
+		rightScroller.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+
+		updateFriendList();
+		setFriendList();
+
+		rightPanel.add(rightScroller);
+
+		addMember = new JButton("Add");
+		addMember.addActionListener(new AddActionListener());
+		
+		rightPanel.add(addMember);
+
+
+		mainPanel = new JPanel();
+		mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.X_AXIS));
+		mainPanel.add(leftPanel);
+		mainPanel.add(rightPanel);
+
+		startButton = new JButton("Start Group Chat");
+		startButton.addActionListener(new GroupChatStartListener());
+
+		frame.getContentPane().add(BorderLayout.CENTER, mainPanel);
+		frame.getContentPane().add(BorderLayout.SOUTH, startButton);
+
+		Point parentLoc = parentFrame.getLocation();
+		int xloc = (int) (parentLoc.getX() + parentFrame.getSize().width/2 - frame.getSize().width/2);
+		int yloc = (int) (parentLoc.getY() + parentFrame.getSize().height/2 - frame.getSize().height/2);
+		frame.setLocation(xloc, yloc);
+		frame.setVisible(true);
+	}
+	public void addGroupTab(String title, ArrayList<InetAddress> ipAddresses){
+		frame.setVisible(false);
+		frame.dispose();
+
+		int num_tabs = parentTabbedPane.getTabCount();
+		for(int i=0;i<num_tabs;i++){
+			String t = parentTabbedPane.getTitleAt(i);
+			if(t.compareTo(title) == 0){
+				parentTabbedPane.setSelectedComponent(parentTabbedPane.getComponentAt(i));
+				statusField.setText("Already connected.");
+				return ;
+			}
+		}
+
+		JPanel chatArea = new JPanel();
+		chatArea.setLayout(new BoxLayout(chatArea, BoxLayout.Y_AXIS));
+		chatArea.setPreferredSize(new Dimension(90, 10000));
+		//chatArea.setEditable(false);
+		//chatArea.setLineWrap(true);
+		//chatArea.setFont(font);
+		JScrollPane chatScroller = new JScrollPane(chatArea);
+		chatScroller.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+		chatScroller.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+
+
+		
+
+		GroupChatClient client = new GroupChatClient(title);
+		boolean res = client.connect(ipAddresses , chatArea);
+		if(!res){
+			statusField.setText("Unable to connect.");
+			return ;
+		}
+
+		statusField.setText("Connected.");
+		clientsForTabs.add(client);
+		clientClosedStatus.add(false);
+
+		parentTabbedPane.addTab(title, chatScroller);
+		parentTabbedPane.setBackgroundAt(clientsForTabs.size()-1, new Color(109, 132, 180));
+		parentTabbedPane.setSelectedComponent(chatScroller);
+
+	}
+	class GroupChatStartListener implements ActionListener{
+		public void actionPerformed(ActionEvent e){
+			//
+			ArrayList<InetAddress> ipAddresses = new ArrayList<InetAddress>();
+			ArrayList<String> members = group.getMembers();
+			for(String name: members){
+				if(name.equals(userName))
+					continue;
+				boolean val = Connection.getIpAddress(name);
+				if(val){
+					statusField.setText("Obtaining IP Addresses...");
+					String ip = Connection.response;
+					try{
+						ipAddresses.add(InetAddress.getByName(ip));
+					}
+					catch(UnknownHostException exc){
+						//
+					}
+				}
+				else{
+					statusField.setText(Connection.error);
+				}
+			}
+			statusField.setText("Connectng...Please wait..");
+			addGroupTab(group.getName(), ipAddresses);
+		}
+	}
+	class AddActionListener implements ActionListener{
+		public void actionPerformed(ActionEvent e){
+			JButton button = (JButton) e.getSource();
+			if(button.getText().equals("Add")){
+				Connection.addGroupMember(group.getName(), checkBoxSelection);
+				group.populate(true);
+				showGroupMembers();
+				updateFriendList();
+				setFriendList();
+			}
+		}
+	}
+	class CheckboxItemListener implements ItemListener{
+		public void itemStateChanged(ItemEvent e){
+			JCheckBox cb = (JCheckBox) e.getSource();
+			if(cb.isSelected()){
+				checkBoxSelection.add(cb.getText());
+			}
+			else{
+				checkBoxSelection.remove(cb.getText());
+			}
+		}
 	}
 }

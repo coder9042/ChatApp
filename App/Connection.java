@@ -1,7 +1,8 @@
 import java.io.*;
+import java.util.*;
 import java.net.*;
 class Connection{
-	static final String serverIP = "172.16.11.47";
+	static final String serverIP = "172.16.11.214";
 	static final int serverPort = 6789;
 	static String error = "";
 	static String response = "";
@@ -30,6 +31,7 @@ class Connection{
 				outToServer.writeBytes(outText);
 				BufferedReader inFromServer = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 				String response = inFromServer.readLine();
+				socket.close();
 				if(response.compareTo("Success") == 0)
 					return true;
 				else{
@@ -57,6 +59,7 @@ class Connection{
 				outToServer.writeBytes(outText);
 				BufferedReader inFromServer = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 				String response = inFromServer.readLine();
+				socket.close();
 				if(response.compareTo("Success") == 0)
 					return true;
 				else{
@@ -84,6 +87,7 @@ class Connection{
 				outToServer.writeBytes(outText);
 				BufferedReader inFromServer = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 				String response = inFromServer.readLine();
+				socket.close();
 				if(response.compareTo("Success") == 0)
 					return true;
 				else{
@@ -112,6 +116,7 @@ class Connection{
 				outToServer.writeBytes(outText);
 				BufferedReader inFromServer = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 				String response = inFromServer.readLine();
+				socket.close();
 				if(response.compareTo("Success") == 0)
 					return true;
 				else{
@@ -140,6 +145,30 @@ class Connection{
 				outToServer.writeBytes(outText);
 				BufferedReader inFromServer = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 				response = inFromServer.readLine();
+				socket.close();
+				return true;
+			}
+		}
+		catch(IOException e){
+			e.printStackTrace();
+			return false;
+		}
+	}
+	public static synchronized boolean getGroupList(String username){
+		error = "";
+		Socket socket = connectToServer();
+		try{
+			if(socket == null){
+				error = "Error in connecting to the server...";
+				return false;
+			}
+			else{
+				DataOutputStream outToServer = new DataOutputStream(socket.getOutputStream());
+				String outText = "9," + username + "\n";
+				outToServer.writeBytes(outText);
+				BufferedReader inFromServer = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+				response = inFromServer.readLine();
+				socket.close();
 				return true;
 			}
 		}
@@ -162,12 +191,104 @@ class Connection{
 				outToServer.writeBytes(outText);
 				BufferedReader inFromServer = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 				response = inFromServer.readLine();
+				socket.close();
 				if(response.compareTo("Success") == 0){
 					return true;
 				}
 				else{
 					error = response;
 					return false;
+				}
+			}
+		}
+		catch(IOException e){
+			e.printStackTrace();
+			return false;
+		}
+	}
+	public static synchronized boolean addGroup(String username, String name){
+		error = "";
+		Socket socket = connectToServer();
+		try{
+			if(socket == null){
+				error = "Error in connecting to the server...";
+				return false;
+			}
+			else{
+				DataOutputStream outToServer = new DataOutputStream(socket.getOutputStream());
+				String outText = "10," + username + "," + name + "\n";
+				outToServer.writeBytes(outText);
+				BufferedReader inFromServer = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+				response = inFromServer.readLine();
+				socket.close();
+				if(response.compareTo("Success") == 0){
+					return true;
+				}
+				else{
+					error = response;
+					return false;
+				}
+			}
+		}
+		catch(IOException e){
+			e.printStackTrace();
+			return false;
+		}
+	}
+	public static synchronized boolean addGroupMember(String groupName, ArrayList<String> friendName){
+		error = "";
+		Socket socket = connectToServer();
+		try{
+			if(socket == null){
+				error = "Error in connecting to the server...";
+				return false;
+			}
+			else{
+				DataOutputStream outToServer = new DataOutputStream(socket.getOutputStream());
+				String outText = "11," + groupName;
+				for(String f: friendName){
+					outText += "," + f;
+				}
+				outText += "\n";
+				outToServer.writeBytes(outText);
+				BufferedReader inFromServer = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+				response = inFromServer.readLine();
+				socket.close();
+				if(response.compareTo("Success") == 0){
+					return true;
+				}
+				else{
+					error = response;
+					return false;
+				}
+			}
+		}
+		catch(IOException e){
+			e.printStackTrace();
+			return false;
+		}
+	}
+	public static synchronized boolean getGroupMembers(String groupName){
+		error = "";
+		Socket socket = connectToServer();
+		try{
+			if(socket == null){
+				error = "Error in connecting to the server...";
+				return false;
+			}
+			else{
+				DataOutputStream outToServer = new DataOutputStream(socket.getOutputStream());
+				String outText = "12," + groupName + "\n";
+				outToServer.writeBytes(outText);
+				BufferedReader inFromServer = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+				response = inFromServer.readLine();
+				socket.close();
+				if(response.compareTo("Failed") == 0){
+					error = response;
+					return false;
+				}
+				else{
+					return true;
 				}
 			}
 		}
@@ -190,6 +311,7 @@ class Connection{
 				outToServer.writeBytes(outText);
 				BufferedReader inFromServer = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 				response = inFromServer.readLine();
+				socket.close();
 				if(response.compareTo("Failed") == 0){
 					error = response;
 					return false;
@@ -218,6 +340,7 @@ class Connection{
 				outToServer.writeBytes(outText);
 				BufferedReader inFromServer = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 				response = inFromServer.readLine();
+				socket.close();
 				if(response.compareTo("Failed") == 0){
 					error = response;
 					return false;

@@ -14,7 +14,7 @@ class AuthenticationServer{
 			System.out.println("Connection accepted from " + clientIP + ":" + connectionSocket.getPort());
 			BufferedReader inFromClient = new BufferedReader(new InputStreamReader(connectionSocket.getInputStream()));
 			String input = inFromClient.readLine();
-			if(input.charAt(0) == '1'){
+			if(input.charAt(0) == '1' && !(input.charAt(1) >= '0' && input.charAt(1) <= '9')){
 				boolean value = signUp(input);
 				DataOutputStream outToClient = new DataOutputStream(connectionSocket.getOutputStream());
 				if(value)
@@ -63,6 +63,30 @@ class AuthenticationServer{
 					outToClient.writeBytes("Success\n");
 				else
 					outToClient.writeBytes(error+"\n");
+			}
+			else if(input.charAt(0) == '9'){
+				DataOutputStream outToClient = new DataOutputStream(connectionSocket.getOutputStream());
+				outToClient.writeBytes(groupList(input) + "\n");
+			}
+			else if(input.charAt(0) == '1' && input.charAt(1) == '0'){
+				DataOutputStream outToClient = new DataOutputStream(connectionSocket.getOutputStream());
+				boolean value = addGroup(input);
+				if(value)
+					outToClient.writeBytes("Success\n");
+				else
+					outToClient.writeBytes(error+"\n");
+			}
+			else if(input.charAt(0) == '1' && input.charAt(1) == '1'){
+				DataOutputStream outToClient = new DataOutputStream(connectionSocket.getOutputStream());
+				boolean value = addGroupMember(input);
+				if(value)
+					outToClient.writeBytes("Success\n");
+				else
+					outToClient.writeBytes(error+"\n");
+			}
+			else if(input.charAt(0) == '1' && input.charAt(1) == '2'){
+				DataOutputStream outToClient = new DataOutputStream(connectionSocket.getOutputStream());
+				outToClient.writeBytes(getGroupMembers(input) + "\n");
 			}
 			connectionSocket.close();
 		}
@@ -135,6 +159,10 @@ class AuthenticationServer{
 			File newFile3 = new File("data/users/"+username+"_status.txt");
 			p = new PrintWriter(new BufferedWriter(new FileWriter(newFile3)));
 			p.println(0);
+			p.close();
+
+			File newFile4 = new File("data/users/"+username+"_groups.txt");
+			p = new PrintWriter(new BufferedWriter(new FileWriter(newFile4)));
 			p.close();
 			return true;
 		}
@@ -282,6 +310,27 @@ class AuthenticationServer{
 		}
 		return res;
 	}
+	private static String groupList(String input){
+		String data[] = input.split(",");
+		String username = data[1];
+		
+		File myFile = new File("data/users/"+username+"_groups.txt");
+		String res = "";
+
+		try{
+			BufferedReader in = new BufferedReader(new FileReader(myFile));
+			String line = in.readLine();
+			res = line;
+			while((line = in.readLine()) != null){
+				res += "," + line;
+			}
+			in.close();
+		}
+		catch(IOException e){
+			e.printStackTrace();
+		}
+		return res;
+	}
 	private static boolean addFriend(String input){
 		String data[] = input.split(",");
 		String username = data[1];
@@ -319,6 +368,7 @@ class AuthenticationServer{
 			}
 			in.close();
 
+
 			if(flag){
 				error = "Already in friend list.";
 				return false;
@@ -328,6 +378,11 @@ class AuthenticationServer{
 			p.println(friendName);
 			p.close();
 
+			myFile = new File("data/users/"+friendName+"_friends.txt");
+			p = new PrintWriter(new BufferedWriter(new FileWriter(myFile, true)));
+			p.println(username);
+			p.close();
+
 			return true;
 
 		}
@@ -335,6 +390,107 @@ class AuthenticationServer{
 			e.printStackTrace();
 			error = "Server Error.";
 			return false;
+		}
+	}
+	private static boolean addGroup(String input){
+		String data[] = input.split(",");
+		String username = data[1];
+		String groupName = data[2];
+
+		File grpFile = new File("data/groups.txt");
+		BufferedReader in;
+		PrintWriter p;
+		String line = null;
+		try{
+			in = new BufferedReader(new FileReader(grpFile));
+			boolean flag = false;
+			while((line = in.readLine()) != null){
+				if(line.compareTo(groupName) == 0){
+					flag = true;
+					break;
+				}
+			}
+			in.close();
+			if(flag){
+				error = "Group by the name of '"+ groupName +"' already exists.";
+				return false;
+			}
+
+			p = new PrintWriter(new BufferedWriter(new FileWriter(grpFile, true)));
+			p.println(groupName);
+			p.close();
+
+			File myFile = new File("data/users/" + username + "_groups.txt");
+			p = new PrintWriter(new BufferedWriter(new FileWriter(myFile, true)));
+			p.println(groupName);
+			p.close();
+
+
+			File groupFile = new File("data/groups/" + groupName + ".txt");
+
+			p = new PrintWriter(new BufferedWriter(new FileWriter(groupFile, true)));
+			p.println(username);
+			p.close();
+
+			return true;
+
+		}
+		catch(IOException e){
+			e.printStackTrace();
+			error = "Server Error.";
+			return false;
+		}
+	}
+	private static boolean addGroupMember(String input){
+		String data[] = input.split(",");
+		String groupName = data[1];
+
+
+		try{
+			File groupFile = new File("data/groups/" + groupName + ".txt");
+
+			PrintWriter p = new PrintWriter(new BufferedWriter(new FileWriter(groupFile, true)));
+
+			for(int i = 2; i<data.length;i++){
+				p.println(data[i]);
+
+				PrintWriter p1 = new PrintWriter(new BufferedWriter(new FileWriter(new File("data/users/" + data[i] + "_groups.txt"), true)));
+				p1.println(groupName);
+				p1.close();
+			}
+			p.close();
+
+
+			return true;
+		}
+		catch(IOException e){
+			e.printStackTrace();
+			error = "Server Error";
+			return false;
+		}
+	}
+	private static String getGroupMembers(String input){
+		String data[] = input.split(",");
+		String groupName = data[1];
+
+		try{
+			File groupFile = new File("data/groups/" + groupName + ".txt");
+
+			BufferedReader in = new BufferedReader(new FileReader(groupFile));
+
+			String out = in.readLine();
+			String line = null;
+			while((line = in.readLine()) != null){
+				out += "," + line;
+			}
+			in.close();
+
+			return out;
+		}
+		catch(IOException e){
+			e.printStackTrace();
+			error = "Server Error";
+			return "Failed";
 		}
 	}
 	private static String getIP(String input){

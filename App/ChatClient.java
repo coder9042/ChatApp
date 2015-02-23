@@ -2,10 +2,9 @@ import java.io.*;
 import javax.swing.*;
 import java.awt.*;
 import java.net.*;
-class ChatClient{
+class ChatClient extends Client{
 	Thread listeningThread;
 	private Socket mSocket;
-	private Socket mediaSocket;
 	private JPanel chatArea;
 	static final int serverPort = 6792;
 	public ChatClient(){
