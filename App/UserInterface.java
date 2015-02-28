@@ -41,6 +41,11 @@ class UserInterface{
 
 	ChatServer myServer;
 	GroupChatServer myGroupServer;
+
+	VideoChatServer myVideoServer;
+	VideoChatClient myVideoClient;
+	VideoChatWindow window;
+
 	ArrayList<Client> clientsForTabs = new ArrayList<Client>();
 	ArrayList<Boolean> clientClosedStatus = new ArrayList<Boolean>();
 
@@ -73,10 +78,11 @@ class UserInterface{
 		typeArea.setFont(font2);
 		typeArea.setBorder(BorderFactory.createEmptyBorder());
 
-		audioButton = new JButton("", new ImageIcon("audio.png"));
+		audioButton = new JButton("", new ImageIcon("icons/audio.png"));
 		audioButton.setFocusPainted(false);
 		audioButton.addActionListener(new AudioButtonListener());
-		videoButton = new JButton("", new ImageIcon("video.png"));
+		videoButton = new JButton("", new ImageIcon("icons/video.png"));
+		videoButton.addActionListener(new VideoButtonListener());
 		videoButton.setFocusPainted(false);
 		JPanel buttonPanel = new JPanel();
 		buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
@@ -176,6 +182,7 @@ class UserInterface{
 						Thread.sleep(5000);
 						checkSocketStatus();
 						//refreshFriendList();
+						//refreshGroupList();
 						copyStatusField.setText("");
 					}
 					catch(Exception e){
@@ -217,8 +224,8 @@ class UserInterface{
 		Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
 		frame.setLocation(dim.width/2-frame.getSize().width/2, dim.height/2-frame.getSize().height/2);
 
-		frame.addWindowListener(new java.awt.event.WindowAdapter() {
-		    public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+		frame.addWindowListener(new WindowAdapter() {
+		    public void windowClosing(WindowEvent windowEvent) {
 		        if (JOptionPane.showConfirmDialog(frame, 
 		            "Are you sure to logout and exit?", "Exit CHAT APP?", 
 		            JOptionPane.YES_NO_OPTION,
@@ -618,6 +625,43 @@ class UserInterface{
 			}
 		}
 	}
+	class VideoButtonListener implements ActionListener{
+		public void actionPerformed(ActionEvent e){
+			int currentIndex = chatTabbedPane.getSelectedIndex();
+			Client client = clientsForTabs.get(currentIndex);
+			String toUser = chatTabbedPane.getTitleAt(currentIndex);
+
+			if(client instanceof GroupChatClient){
+				statusField.setText("Video chat not allowed on a group.");
+				return;
+			}
+
+			ChatClient currentClient = (ChatClient) client;
+
+			InetAddress toIP = currentClient.connectedTo();
+			System.out.println(toIP);
+			if(myVideoServer == null){
+				window = new VideoChatWindow(videoButton, toUser);
+				myVideoServer = new VideoChatServer(window, toIP);
+				myVideoClient = new VideoChatClient(window, toIP);
+				window.setClient(myVideoClient);
+				myVideoServer.start();
+			}
+			else{
+				statusField.setText("Currently in a video chat.");
+				if (JOptionPane.showConfirmDialog(frame, 
+				    "Are you sure to kill the current video chat?", "Exit Video Chat?", 
+				    JOptionPane.YES_NO_OPTION,
+				    JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION){
+					window.frame.dispose();
+					window.frame2.dispose();
+					myVideoClient.pause();
+					myVideoClient = null;
+					myVideoServer = null;
+				}
+			}
+		}
+	}
 }
 class MyButton extends JButton{
 	public MyButton(String title){
@@ -708,7 +752,7 @@ class AudioControlUI{
 		}
 	}
 	public static void addAudioButton(JPanel panel, byte[] recordedBytes, String text){
-		JButton playButton = new JButton(text, new ImageIcon("speakers.png"));
+		JButton playButton = new JButton(text, new ImageIcon("icons/speakers.png"));
 		playButton.setBackground(Color.WHITE);
 		playButton.setFocusPainted(false);
 		playButton.addActionListener(new AudioPlayer(recordedBytes));
@@ -995,3 +1039,104 @@ class GroupManagerUI{
 		}
 	}
 }
+
+class VideoChatWindow {
+	
+    JFrame frame;
+    JFrame frame2;
+    JPanel showVideoPanel;
+    JPanel sidePanel;
+    JButton startButton;
+    JButton pauseButton;
+    JPanel myVideoPanel;
+
+    String userName;
+
+    VideoChatClient myClient;
+
+    JButton parentButton;
+
+    public void setClient(VideoChatClient myClient){
+    	this.myClient = myClient;
+    }
+
+    public VideoChatWindow(JButton button, String userName) {
+
+    	this.userName = userName;
+    	this.parentButton = button;
+
+
+        frame = new JFrame("VIDEO CHAT -- " + userName);
+        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        frame.addWindowListener(new WindowAdapter() {
+		    public void windowClosing(WindowEvent windowEvent) {
+		    	myClient.pause();
+		        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		        frame2.dispose();
+		    }
+		});
+        frame.setSize(640, 480);
+        frame.setResizable(false);
+        frame2 = new JFrame("VIDEO CHAT -- MY WINDOW");
+        frame2.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        frame2.setSize(300, 300);
+        frame2.setResizable(false);
+        showVideoPanel = new JPanel();
+        myVideoPanel = new JPanel();
+        showVideoPanel.setPreferredSize(new Dimension(600, 600));
+        showVideoPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+        myVideoPanel.setPreferredSize(new Dimension(300, 300));
+        myVideoPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+        startButton = new JButton("Start");
+        startButton.addActionListener(new StartButtonListener());
+        pauseButton = new JButton("Pause");
+        pauseButton.addActionListener(new PauseButtonListener());
+        sidePanel = new JPanel();
+        sidePanel.setLayout(new BoxLayout(sidePanel, BoxLayout.X_AXIS));
+
+        sidePanel.add(startButton);
+        sidePanel.add(pauseButton);
+        
+        frame.getContentPane().add(BorderLayout.CENTER, showVideoPanel);
+        frame.getContentPane().add(BorderLayout.SOUTH, sidePanel);
+        frame2.getContentPane().add(BorderLayout.CENTER, myVideoPanel);
+    }
+
+    public void show() {
+        frame.setVisible(true);
+        frame2.setVisible(true);
+    }
+
+    public void updateVideo(byte[] bytes) throws IOException {
+        System.out.println(bytes.length);
+        Image im = ImageIO.read(new ByteArrayInputStream(bytes));
+        BufferedImage buff = (BufferedImage) im;
+        Graphics g = showVideoPanel.getGraphics();
+        if (g == null) {
+            System.out.println("dv");
+        }
+
+        g.drawImage(buff, showVideoPanel.getX(), showVideoPanel.getY(), showVideoPanel.getWidth(), showVideoPanel.getHeight(), 0, 0, buff.getWidth(), buff.getHeight(), null);
+    }
+
+
+    class StartButtonListener implements ActionListener {
+
+        public void actionPerformed(ActionEvent ae) {
+           	myClient.start();
+            startButton.setEnabled(false);
+            pauseButton.setEnabled(true);
+           
+        }
+    }
+
+    class PauseButtonListener implements ActionListener {
+
+        public void actionPerformed(ActionEvent ae) {
+        	myClient.pause();
+        	pauseButton.setEnabled(false);
+            startButton.setEnabled(true);
+        }
+    }
+}
+

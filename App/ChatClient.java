@@ -10,6 +10,9 @@ class ChatClient extends Client{
 	public ChatClient(){
 		//
 	}
+	public InetAddress connectedTo(){
+		return mSocket.getInetAddress();
+	}
 	public boolean connect(InetAddress ipAddress, JPanel chatArea){
 		try{
 			System.out.println("Connecting to "+ipAddress+":"+serverPort);

@@ -3,6 +3,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import java.util.*;
+import java.net.*;
+
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
@@ -22,6 +25,8 @@ public class AudioHelper {
 	static AudioFormat format = new AudioFormat(sampleRate, sampleSizeInBits, channels, signed, bigEndian);
 
 	static final int maxBytes = 5 * 1024 * 1024;
+
+    Queue<ByteArrayOutputStream> outputs = new LinkedList<ByteArrayOutputStream>();
 
 	boolean stopped = false;
 
@@ -57,6 +62,70 @@ public class AudioHelper {
         catch (LineUnavailableException e) {
             e.printStackTrace();
             return null;
+        }
+    }
+    public void recordAndSend(InetAddress addr, int port){
+        TargetDataLine microphone;
+        try {
+            microphone = AudioSystem.getTargetDataLine(format);
+
+            DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
+            microphone = (TargetDataLine) AudioSystem.getLine(info);
+            microphone.open(format);
+
+            
+            int numBytesRead;
+            int CHUNK_SIZE = 1024;
+            microphone.start();
+
+            final InetAddress ipAddress = addr;
+            final int portNum = port;
+            new Thread(new Runnable(){
+                    public void run(){
+                        while(true){
+                            try{
+                                DatagramSocket socket = new DatagramSocket();
+                                ByteArrayOutputStream out = outputs.poll();
+                                if(out == null){
+                                    Thread.sleep(2000);
+                                    continue;
+                                }
+                                byte[] arr = out.toByteArray();
+                                DatagramPacket sendPacket = new DatagramPacket(arr, arr.length, ipAddress, portNum);
+                                socket.send(sendPacket);
+                                System.out.println("Audio sent");
+                            }
+                            catch(Exception e){
+                                //e.printStackTrace();
+                            }
+                        }
+                    }
+                }).start();
+
+            while(!stopped){
+                int bytesRead = 0;
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                byte[] data = new byte[microphone.getBufferSize() / 5];
+                try{
+                    while(bytesRead < 40000) {
+                        numBytesRead = microphone.read(data, 0, CHUNK_SIZE);
+                        bytesRead = bytesRead + numBytesRead;
+                        out.write(data, 0, numBytesRead);
+                    }
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+                outputs.add(out);
+                //final byte arr[] = out.toByteArray();
+                //System.out.println("size of audio="+arr.length);
+                
+            }
+            microphone.close();
+        }
+        catch (LineUnavailableException e) {
+            e.printStackTrace();
         }
     }
     public static void play(byte[] audioData){
