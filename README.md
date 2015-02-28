@@ -1,3 +1,14 @@
+FEATURES
+========
+
+- One-to-one chat after adding a user in friend list.
+- Concurrent chat with multiple friends.
+- Creating groups from among users in friend list.
+- Group chat.
+- Audio messaging for both one-to-one and group chat.
+- One-to-one video chatting.
+
+
 INTRUCTIONS
 ===========
 
